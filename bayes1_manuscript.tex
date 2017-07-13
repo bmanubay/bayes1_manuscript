@@ -111,7 +111,7 @@
     \end{outline}
     \item{Simulations}
     \begin{outline}
-      \item{Generate simulation data by simulating a set of AlkEthOH molecules using the ‘smirff99Frosst’ forcefield}
+      \item{Generate simulation data by simulating a set of AlkEthOH molecules using the ‘smirnoff99Frosst’ forcefield}
       \item{Simulation parameters:}
       \begin{outline}
         \item{Thermostated to 300 K}
@@ -212,7 +212,90 @@
           \item{**Currently looking up best practices for making accurate surrogate models with sparse high dimensional data}
           \item{Will use lowest level of complexity possible here (like splining for example)}
         \end{outline}
-      \end{outline}
+        \begin{outline}
+         \item{Deciding on surrogate models to use}
+         \begin{outline} 
+          \item{Parameters}
+           \begin{itemize}
+           \item Equilibrium bond length: $x_0$ (units of $\Angstrom$)
+           \item Bonded force constant: $k_{bond}$
+           \item k_{bond}^*(Transformed bonded force constant): $\frac{1}{\sqrt{k_{bond} \times \beta}$ (units of $\Angstrom$)
+           \item Equilibrium bond angle: $\theta_0$ (units of radians)
+           \item Angular force constant: $k_{angle}$
+           \item k_{angle}^*(Transformed angular force constant): $(\frac{\pi}{180})\times\frac{1}{\sqrt{k_{angle} \times \beta}$ (units of radians)
+           \end{itemize}
+          \item{Model forms}
+          \begin{outline}
+           \item{Bond Observables}
+            \begin{itemize}
+            \item $O_{bond, av}(x_0,k_{bond}^*)$ (Bond length average)
+            \item $O_{bond, var}(x_0,k_{bond}^*)$ (Bond length variance)
+            \end{itemize}
+           \item{Model equations (listed in increasing order of complexity)}
+           \begin{outline}
+            \item{Simple theoretical}
+             \begin{itemize}
+             \item $O_{bond, av}(x_0) = x_0$
+             \item $O_{bond, var}(k_{bond}^*) = k_{bond}^*^2$
+             \end{itemize}
+            \item{Linear (no intercept or cross term)}
+             \begin{itemize}
+             \item $O_{bond, av}(x_0) = a_{0,av} \times x_0 + a_{1,av} \times k_{bond}^*$
+             \item $O_{bond, var}(k_{bond}^*) = a_{0,var} \times x_0 + a_{1,var} \times k_{bond}^*$
+             \end{itemize}
+            \item{Linear (w/ intercept)}
+             \begin{itemize}
+             \item $O_{bond, av}(x_0) = a_{0,av}+ a_{1,av} \times x_0 + a_{2,av} \times k_{bond}^*$
+             \item $O_{bond, var}(k_{bond}^*) = a_{0,var} a_{1,var} \times x_0 + a_{2,var} \times k_{bond}^*$
+             \end{itemize}
+            \item{Linear (w/ intercept and cross term)}
+             \begin{itemize}
+             \item $O_{bond, av}(x_0) = a_{0,av}+ a_{1,av} \times x_0 + a_{2,av} \times k_{bond}^* + a_{3,av} \times x_0 \times k_{bond}^*$
+             \item $O_{bond, var}(k_{bond}^*) = a_{0,var} a_{1,var} \times x_0 + a_{2,var} \times k_{bond}^* + a_{3,var} \times x_0 \times k_{bond}^*$
+             \end{itemize}
+            \item{Quadratic }
+             \begin{itemize}
+             \item $O_{bond, av}(x_0) = a_{0,av}+ a_{1,av} \times x_0 + a_{2,av} \times k_{bond}^* + a_{3,av} \times x_0 \times k_{bond}^* + a_{4,av} \times x_0^2 +a_{5,av} \times k_{bond}^*^2$
+             \item $O_{bond, var}(k_{bond}^*) = a_{0,var} a_{1,var} \times x_0 + a_{2,var} \times k_{bond}^* + a_{3,var} \times x_0 \times k_{bond}^* + a_{4,var} \times x_0^2 +a_{5,var} \times k_{bond}^*^2$
+           \end{outline}
+           \item{Angle Observables}
+            \begin{itemize}
+            \item $O_{angle, av}(x_0,k_{angle}^*)$ (Bond length average)
+            \item $O_{angle, var}(x_0,k_{angle}^*)$ (Bond length variance)
+            \end{itemize}
+           \item{Model equations}
+           \begin{outline}
+            \item{Same models replacing the $x_0$ with $\theta_0$ and $k_{bond}^*$ with $k_{angle}^*$}
+           \end{outline}
+          \end{outline}
+          \item{Justification of surrogate models for $O(\theta)$ for bond and angle observables}
+          \begin{outline}
+           \item{Main criteria for choosing a model were based on calculated RMSD between simulated observables and surrogate models 
+                 values evaluated at the same parameters. We want models that are “good enough” in order to rapidly sample across 
+                 parameter space that are as simple as possible. We chose the simplest models with RMSD less than an order of magnitude 
+                 greater than the next most complex model. The surrogates tested were simple theoretical models, linear surfaces of 
+                 varying complexity and up to a nine parameter quadratic polynomial surface.}
+           \item{Bonds}
+           \begin{outline}
+            \item{For the bond length average observable it was determined that the simple theoretical model, which in this case is just 
+                  the value of the equilibrium bond length parameter (x0) is sufficient to describe the bond length average. The next most 
+                  complex model was a two parameter planar surface (no intercept or cross term) and the decrease in RMSD between model and 
+                  simulation was less than ~2.6 fold (from 0.0037 to 0.0014).
+            \item{For bond length variance we determined that the simple theoretical model (1/(k_bond*beta) units of A^2) was sufficient. 
+                  With an RMSD of 8.65e-5 between model and simulation, only only the quadratic surface model performed slightly better.}
+           \end{outline}
+           \item{Angles}
+           \begin{outline}
+            \item{For bond angle average the two parameter planar model was chosen which had an RMSD of 0.439 between model and simulation, 
+                  ~2 times greater than the next most complex model (linear model with a third intercept parameter). It is of note that the 
+                  simple theoretical model (equilibrium bond angle parameter, theta0) was highly inadequate here due to the great variability 
+                  in observed bond angle average across chemistries.}
+            \item{For bond angle variance the simple theoretical model was chosen. The RMSD between model and simulation was 0.00891, less than 
+                  1.06 times greater than the next most complex model (two parameter linear model).}
+           \end{outline} 
+          \end{outline} 
+         \end{outline}
+        \end{outline}
       \item{Multistate reweighting using MBAR}
       \begin{outline}
         \item{Not too sure how useful this is going to be if we can use surrogate modeling to help assess likelihood instead}
